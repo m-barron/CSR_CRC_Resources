@@ -1,0 +1,326 @@
+---
+title: "CSR & CRC Resources"
+author: "Martin Barron"
+date: "November 28, 2017"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+```
+
+# CSR Resources 
+
+## What is the CSR
+
+* A center dedicated to improving the quality and efficiency of Social Research at Notre Dame.
+* Offers support for researchers at all stages in a research projects life cycle.
+* Available to all students pursing social research.
+
+## Services Offered
+
+We offer consultations in the following areas:
+
+* Statistical analysis. 
+* Survey design and implementation.
+* Data acquisition and management
+* Research design assitance
+* Visualization
+* GIS
+
+## Workshops
+From time to time the center also offers workshops to students. Some examples would be:
+
+* Introduction to R.
+* Introduction to data visualization.
+* Handling unbalanced data in R. 
+
+## Consultations
+
+* Submit an intake form through http://csr.nd.edu
+* Meet with Graduate Consultant + others depending on needs.
+* On the spot help for survey, coding or other computing issues. 
+* Directed to additional resources for more complex issues. 
+* Follow-up consultations to provide further help. 
+
+
+## Statistical Services
+
+* Determining and implementing an appropriate analysis.
+* Troubleshooting code problems.
+* Data visualization.
+* Help with running code on the computing cluster. 
+* And others.
+
+
+## Survey Research Services
+
+* Assisting in the development of survey research designs.
+* Programming internet-based survey software and deploying web surveys.
+* Providing assistance with optimizing Qualtrics.
+* Advising about data cleaning, coding, missing data imputation, and performing initial analysis of data collected.
+* And others.
+
+
+## Questions 
+
+Any questions?
+
+# CRC Resources
+
+## What is the CRC
+
+* The Center for Research Computing at University of Notre Dame is an innovative and multidisciplinary research    environment that supports collaboration to facilitate discoveries in science and engineering, the arts, humanities and social sciences, through advanced computation, data analysis and other digital research tools. 
+* Students mainly will use the High Performance computing cluster.
+
+## Services Offered
+
+* The CRC operates a state of the art High Performance Computing (HPC) facility providing advanced computing support to researchers within Notre Dame.
+* HPC manages parallel supercomputers, clusters, grid networks and storage (over 20,000 cores total and 3 PB storage) which provide exceptional levels of processing speed and power compared to desktop and monolithic mainframe systems.
+
+
+## Getting setup on at the CRC
+
+* First step, register for an account: https://crc.nd.edu/index.php/services/forms/user-account-request-form
+* Attend CRC user training. Here the will help you set up the necessary software to run everything on the CRC.
+* Training time and registration can be found at:
+
+https://crc.nd.edu/index.php/crc-training-courses
+
+
+## Questions 
+
+Any questions?
+
+# CRC R script submission
+
+## Running R code on the CRC
+
+I will demonstrate how it is done once you are set up on the CRC. The two software programs used are:
+
+* Putty - Allows you to interface with the CRC. 
+* WinZip - A file manager allowing you to easily transfer files. 
+
+## Some example R code
+
+```{r Example Code , warning=FALSE , echo=TRUE}
+head(midwest) # View Data
+
+midwest <- midwest # Bring data to workspace
+
+
+
+```
+
+
+## Visualize Data 
+```{r ggplot}
+gg <- ggplot(midwest, aes(x=area, y=poptotal)) + 
+  geom_point(aes(col=state, size=popdensity)) + 
+  xlim(c(0, 0.1)) + 
+  ylim(c(0, 500000)) + 
+  labs(subtitle="Area Vs Population", 
+       y="Population", 
+       x="Area", 
+       title="Scatterplot", 
+       caption = "Source: midwest") +
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+plot(gg)
+```
+
+
+## Linear Regression
+
+```{r Linear Regression , warning=FALSE , echo=TRUE}
+
+fit_1 <- lm(area ~ poptotal, data = midwest) # Fit linear regression
+summary(fit_1)  # Summarise Results
+
+
+```
+
+
+
+
+## Saving data
+
+```{r Saving Data , warning=FALSE , echo=TRUE}
+
+save(midwest, file="midwest.rda") # Save data
+
+```
+
+
+## Writing an R-script
+
+* The same as writing regular r-code
+* Need to load the data we want to work with as always.
+* Remember to save at the end.
+
+
+## Creating a job file
+
+\#!/bin/csh
+
+\#$ -M netid@nd.edu	 # Email address for job notification
+
+\#$ -m abe		 # Send mail when job begins, ends and aborts
+
+\#$ -pe smp 12	 # Specify parallel environment and legal core size
+
+\#$ -q long		 # Specify queue
+
+\#$ -N job_name	         # Specify job name
+
+module load xyz	         # Required modules
+
+R CMD BATCH "job name" # Application to execute
+
+
+
+## How to Move Files to the CRC
+
+* Normally done using a file manager.
+* Allows you to drag and drop your files. 
+* Straight forward to use. 
+* I use WinZip, many other options available. 
+
+## Submitting a script on the CRC
+
+* First we need to open a connection to the CRC.
+* Log in with netID.
+* CRC front end is linux based. (Only a few commands need to be learnt, CRC training) 
+* Navigate to directory where we have moved our files. 
+* Submit job using "qsub" and then the file name.
+
+
+## Checking progress of a job on the CRC
+
+* This is done by using "qstat -u" and then your username. 
+* Can also use "qstat -j" and then a job number for specific details on a single job.
+
+## Checking the output of a CRC job
+
+* We can view the output from the CRC using the command line interface. 
+* We can also use our file managing system.
+
+## Moving results back to your own computer
+
+* Moving result files back to your computer is the same as moving them to the CRC. 
+* We can then open our result files in R. 
+* And analyse them as we want to. 
+
+## Opening and analysing CRC results
+
+
+```{r Analysing CRC Results}
+
+load("midwest_res.rda")
+
+summary(fit_2)
+
+```
+
+
+## Questions 
+
+Any questions?
+
+
+
+# CRC Parallel Computing
+
+## Executing Computations in Parallel 
+
+* Split the problem into pieces,
+* Execute in parallel.
+* Collect the results.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
