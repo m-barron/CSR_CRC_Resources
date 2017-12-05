@@ -1,0 +1,54 @@
+#!/bin/csh
+
+
+
+
+
+
+
+#$ -M mbarron2@nd.edu
+
+
+
+
+
+
+#$ -m abe
+
+
+
+
+
+
+#$ -r y
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+module load R
+
+
+
+
+
+
+
+
+
+
+
+
+
+R CMD BATCH  crc_example_script.r crc_example_script.out
