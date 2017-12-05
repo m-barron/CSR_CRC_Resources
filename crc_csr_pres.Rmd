@@ -230,13 +230,6 @@ Any questions?
 
 
 
-# CRC Parallel Computing
-
-## Executing Computations in Parallel 
-
-* Split the problem into pieces,
-* Execute in parallel.
-* Collect the results.
 
 
 
