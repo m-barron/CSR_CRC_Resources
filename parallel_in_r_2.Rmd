@@ -1,0 +1,328 @@
+---
+title: "Intro to Parallel Computing in R"
+author: "Martin Barron"
+date: "December 6, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Why use parallel computing
+
+* We often need to repeat a computation or series of computations multiple times. 
+* Using a for loop for this task can take a large amount of time. 
+* Nowdays most computers have multiple cores you can take advantage of. 
+* Splitting the job amoung multiple cores can lead to vast time savings. 
+
+Parallel computing consists of three main steps:
+
+1. Split the problem into pieces.
+2. Execute commands on the pieces.
+3. Collect the results together.
+
+
+## Common uses
+
+* Run a simulation model over multiple parameters. 
+* MCMC chains.
+* Bootstrapping.
+* Cross-validation.
+
+## Parallel in R
+
+* By default R only uses a single core on the computer. 
+* We must first register a "parallel backend", which makes more cores available to R and creates a cluster to which computations can be sent. 
+* A few packages which can handle this for you, for this tutorial we will focus on the "doParallel" package as it works for both windows and unix systems. 
+* Other options are "doMC" (unix) and "doSNOW" (Windows) 
+
+
+## Creating a backend
+
+First we must install required R-packages 
+
+```{r install packages}
+#install.packages("foreach")
+#install.packages("doParallel")
+```
+
+We now want to load the R package we just downloaded and register a backend. To do this we use the following steps:
+
+1. Detect how many available cores there are.
+2. Select the number of cores we want to use and create a cluster with them.
+3. We then need to register the cluster we have just created.
+
+```{r Set up parallel backend}
+
+library(doParallel) # Load package
+
+detectCores() # Detect the number of available cores
+
+clus_1 <- makeCluster(2) # Create a cluster with two cores
+
+registerDoParallel(clus_1) # Register the cluster
+
+# We can then check how many cores are currently being used:
+getDoParWorkers()
+
+```
+
+
+## Parallel Computations 
+
+We will next do some simple examples demonstrating the use of the "foreach" package. Lets say we want to compute the square root of a sequence of numbers but wish to split the computation up among the two cores we have registered as a cluster. The "foreach" package makes this straight forward and simple to do.
+
+```{r Square root example}
+library(foreach)  # Load the package
+
+x <- foreach(i = 1:10) %dopar% sqrt(i)
+
+x
+```
+
+The above code works similar to a for loop, with each value of i being passed to the cluster using "%dopar%" and the square root of each is then computed. Notice how the results are returned here with each value as an item in a list. We can change the parameter controlling how the values are combined. Some examples of this are presented below.
+
+```{r Combining results}
+
+# Here we use "combine = c" which concatenates the results into a vector
+x <- foreach(i = 1:10, .combine = c) %dopar% sqrt(i)
+x
+
+# We can also use +, -, * or / to combine the results
+x <- foreach(i = 1:10, .combine = "+") %dopar% sqrt(i)
+x
+
+x <- foreach(i = 1:10, .combine = "-") %dopar% sqrt(i)
+x
+
+x <- foreach(i = 1:10, .combine = "*") %dopar% sqrt(i)
+x
+
+x <- foreach(i = 1:10, .combine = "/") %dopar% sqrt(i)
+x
+
+```
+
+For other parallel computations we can also combine the results using "rbind" (row-bind) or "cbind" (column-bind).
+
+Suppose we want to generate a matrix of random numbers, we can do that using the following code:
+
+```{r Further Examples}
+
+
+x <- foreach(i=1:5, .combine = "cbind") %dopar% rnorm(5)
+
+x
+
+
+```
+
+Here we used "rnorm" to generate 5 random number for each value of i and then used "cbind" to combine them as columns.
+
+
+## More interesting Examples 
+
+### Simulating a linear model
+
+One common application of parallel programming is in simulation. This can be done for a wide range of reasons, here we will focus on analyzing the effect of measurement error on the linear model. 
+
+Here we will simulate some data and then observe the effect of different levels of measurement error on the parameter estimates. We will use the standard linear model to generate the data. We will then generate a new X value with error and use this to predict the Y value. 
+First we will set some parameters, generate our true X variable and select the levels of measurement error we wish to simulate. 
+
+```{r Simulating a linear model prep}
+
+reps <- 1000 # Set the number of repetitions at the top of the script
+b0 <- .2 # True value for the intercept
+b1 <- .5 # True value for the slope
+n <- 1000 # Sample size
+X <- runif(n, -1, 1) # Create a sample of n observations on the 
+                     # independent variable X
+# Level of measurement error (SD of random noise)
+e.level <- c(0, .1, .2, .3, .4, .5, .6, .7, .8, .9, 1) 
+
+```
+
+As we will be generating random numbers inside our parallelization here, we can use the "doRNG" package to produce reproducible results. This will also ensure that our random numbers used by different cores are independent.
+
+```{r}
+# install.packages("doRNG")
+library(doRNG)
+```
+
+Notice how for the simulation, we have replaced "%dopar%" with "%dorng%"
+
+
+```{r Linear Model Simulation}
+
+set.seed(999999)
+
+
+fits <- foreach(error = e.level) %dorng% { 
+  ab.1 <- numeric(reps)
+  par.est <- matrix(NA, nrow = reps, ncol = 2) # Empty matrix to store the
+                                             # estimates      
+  for(i in 1:reps){ 
+    Y <- b0 + b1*X + rnorm(n, 0, 1) # Generate the Y values.
+    Xp <- X + rnorm(n, 0, error) # X measured with error
+    model <- lm(Y ~ Xp) 
+    par.est[i, 1] <- model$coef[1] # Put the estimate for the intercept
+                               # in the first column
+    par.est[i, 2] <- model$coef[2] # Put the estimate for the coefficient on
+                               # X in the second column
+    ab.1[i] <- abs(model$coef[2] - b1)
+  }
+  return(cbind(par.est, ab.1))
+}
+
+
+```
+
+The results have now been returned as a list. To view them we can use the following code:
+
+```{r Viewing a list}
+head(fits[[1]])
+
+```
+ We can then view the discrepancy between the distributions of the calculated parameters for the simulation with no measurement error and the simulation with the highest measurement error. 
+ 
+```{r Plot difference in parameter density distributions}
+
+plot(density(fits[[1]][,2]), lty = 1, xlim = c(0, 1),
+ ylim = c(0, 15), lwd = 3, xlab = "", ylab = "", main = "", axes = FALSE)
+lines(density(fits[[11]][,2]), lwd = 3, lty = 2)
+axis(1, at = seq(0, 1, .1), cex.axis = 1.25)
+axis(2, cex.axis = 1.25, las = 2)
+title(xlab = expression(hat(beta[1])), cex.lab = 1.5)
+title(ylab = expression("Density"), line = 3.75, cex.lab = 1.5)
+abline(v = b1, lwd = 2)
+text(.75, 7, expression("True"~beta[1]~"= 0.50"), cex = 1.5)
+box()
+legend("topright", bty = "n", c(expression(sigma[ME]~"= 0"),
+ expression(sigma[ME]~"= 1")), lty = c(1, 2), lwd = 3, cex = 1.5)
+
+
+```
+
+We can also view the level of absolute bias at the different measurement error levels.
+
+```{r plot absolute bias}
+
+plot(rep(e.level[1], times = reps), fits[[1]][,3], xlim = c(0, 1),
+ ylim = c(0, .5), col = "gray60", xlab = "", ylab = "", axes = FALSE)
+for(i in 2:length(e.level)){
+points(rep(e.level[i], times = reps), fits[[i]][,3], col = "gray60")
+}
+axis(1, at = e.level, cex.axis = 1)
+axis(2, cex.axis = 1.25, las = 2)
+title(xlab = expression("SD of Measurement Error"), cex.lab = 1.5)
+title(ylab = expression(hat(beta[1])~"Absolute Bias"), line = 3.75,
+ cex.lab = 1.5)
+box()
+
+
+```
+
+
+### Parallel Random Forests 
+
+Random forests are a powerful tool used for classification and regression. They are an ensemble method which means they combine the results of many predictors. In this case they combine the results of multiple decision tress, up to 500 are usually used. As you can imagine this can take a lot of time and so they are a perfect candidate for parallelization. 
+
+First we need to the install & load the package. Then we will simualte some data to apply the random forest too. 
+
+```{r Random forest preparation}
+
+# Install and load the package 
+#install.packages("randomForest")
+library(randomForest)
+
+# Simulate some data
+x <- matrix(runif(500), 100) # Simulate covariate matrix
+y <- gl(2, 50)
+
+```
+
+Now we are ready to run our random forest. Suppose we want to create 500 trees, as we are using two cores we should let each core calculate 250 of the trees. So we use an interator of ntree 250. Notice that we need to tell foreach to have the randomForest package loaded in order to execute succesfully. 
+
+```{r Random forest}
+
+rf <- foreach(ntree = rep(250, 2), .combine=combine, .packages = 'randomForest') %dopar% randomForest(x, y, ntree = ntree)
+
+rf
+
+```
+
+
+## Running parallel code on the CRC
+
+* Very similar to running a normal script. 
+* Need to specify the desired number of cores in the job file. 
+
+
+
+
+
+## A more "interesting" example
+
+Suppose we have a dataset with 100 different political parties, containing observations on their members voting history and support for the current administration. We want to see if their voting history is a good indicator of support for the adminstration, yet there may be party differences to take into account. One naive way of handling this problem is to run a seperate linear model for each political party. Solving this problem in parallel will save us valuable time. 
+
+First we must simulate the data:
+
+```{r Sim pol data}
+# Simulate dataset
+pol.df <- data.frame(party = rep(c(1:100), each = 100), vote_history = runif(10000,
+0, 1))
+
+# Create response variable
+support <- 0.5 * pol.df$party + 0.3 * pol.df$vote_history + rnorm(10000)
+# Scale response to 0-1
+library(scales)
+pol.df$support <- rescale(support, c(0, 1))
+
+```
+
+We now want to fit our models. We can do that with the following code:
+
+```{r Fit multiple regressions}
+
+# Extract the party ID's to iterate over.
+parties <- unique(pol.df$party)
+
+# We now run our foreach loop over the parties. Notice we use "rbind" to combine the results here
+pol_fits <- foreach(i = parties, .combine = rbind) %dopar% {
+  # Select just the data from party i
+  party_dat <- subset(pol.df, subset = party == i)
+  # Fit the linear model
+  fit <- lm(support ~ vote_history, data = party_dat)
+  # Specify what to return from the function
+  return(c(i, fit$coefficients))
+}
+
+head(pol_fits)
+
+```
+
+
+## Real data Exercise
+
+To demonstrate parallel computing on real data we can make use of some of the built in data in R packages. Lets load the midwest dataset from the ggplot2 package:
+
+```{r Midwest Data}
+library(ggplot2)
+head(midwest)
+midwest <- midwest
+```
+
+## Some Exercises 
+
+* Run a linear regression with population denisity, "popdensity", as the response variable and percentage below poverty, "percbelowpoverty", and if its in a metro area , "inmetro" as response variables seperately for each state.
+
+
+
+
+
+
+
+
+
+
